@@ -1,6 +1,6 @@
 pub mod simulation;
 use pyo3::prelude::*;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use simulation::*;
 use std::collections::VecDeque;
 
@@ -40,7 +40,8 @@ pub fn klinotaxis(gene: Gene, constant: Const, mode: usize) -> PyResult<(Vec<f64
     }
 
     // 運動ニューロンの初期活性を0～1の範囲でランダム化
-    let _ = thread_rng().try_fill(&mut y[0][4..]);
+    let mut rng_init = rng();
+    rng_init.fill(&mut y[0][4..]);
 
     // 初期角度で配置
     mu[0] = constant.mu_0;
