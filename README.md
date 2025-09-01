@@ -4,7 +4,7 @@ Rust製の高速シミュレーションエンジンによって、線虫（*Cae
 
 本シミュレータは以下の論文に基づいています：
 
-> Hironaka, M., & Sumi, T. (2025). *A neural network model that generates salt concentration memory-dependent chemotaxis in Caenorhabditis elegans*. eLife, 14, RP104456. https://doi.org/10.7554/eLife.104456.1
+> Hironaka, M., & Sumi, T. (2025). *A neural network model that generates salt concentration memory-dependent chemotaxis in Caenorhabditis elegans*. eLife, 14, RP104456. [https://elifesciences.org/articles/104456](https://elifesciences.org/articles/104456)
 
 ---
 
@@ -20,6 +20,7 @@ Rust製の高速シミュレーションエンジンによって、線虫（*Cae
 ## 📦 インストール方法（Installation）
 
 ### Python（PyPI）
+
 ```bash
 pip install wormsim-rs
 ```
@@ -29,60 +30,19 @@ pip install wormsim-rs
 ## 🧪 クイックスタート（Python）
 
 ```python
-from wormsim_rs import klinotaxis
+import matplotlib.pyplot as plt
+import wormsim_rs as ws
 
 # パラメータを定義
-gene = {
-    "gene": [
-        -0.8094022576319283,
-        -0.6771492613425638,
-        0.05892807075993428,
-        -0.4894407617977082,
-        0.1593721867510597,
-        0.3576592038271041,
-        -0.5664294232926526,
-        -0.7853343958692636,
-        0.6552003805912084,
-        -0.6492992485125678,
-        -0.5482223848375227,
-        -0.956542705465967,
-        -1.0,
-        -0.7386107983898611,
-        0.02074396537515929,
-        0.7150315462816783,
-        -0.9243504880454858,
-        0.1353396882729762,
-        0.9494528443702027,
-        0.7727883271643218,
-        -0.6046043758402895,
-        0.7969062294208619,
-    ]
-}
-const = {
-    "alpha": -0.01,  # 線形濃度の勾配
-    "c_0": 1.0,  # ガウス濃度の設定
-    "lambda": 1.61,  # ガウス濃度の設定
-    "x_peak": 4.5,  # 勾配のピークのx座標 /cm
-    "y_peak": 0.0,  # 勾配のピークのy座標 /cm
-    "dt": 0.01,  # 時間刻みの幅 /s
-    "periodic_time": 4.2,  # 移動の1サイクルの継続時間 /s
-    "frequency": 0.033,  # 方向の平均周波数 /Hz
-    "mu_0": 0.0,  # 初期角度 /rad
-    "velocity": 0.022,  # 線虫の速度 /cm/s
-    "simulation_time": 300.0,  # シミュレーション時間 /s
-    "time_constant": 0.1,  # 時定数 /s
-}
+gene = ws.Gene()     # デフォルトの遺伝子パラメータ（22次元ベクトル）
+const = ws.Const()   # デフォルトの環境パラメータ
 
-
-# シミュレーション実行(mode=1: ガウス分布-1ピークの濃度場)
-x, y = klinotaxis(gene, const, mode=1)
-
-# 結果を可視化（matplotlib使用）
-import matplotlib.pyplot as plt
+# シミュレーション実行（mode=1: ガウス分布-1ピークの濃度場）
+x, y = ws.klinotaxis(gene, const, mode=1)
 
 plt.plot(x, y, label="Trajectory")
 plt.scatter(0, 0, label="Starting Point")
-plt.scatter(const["x_peak"], const["y_peak"], label="Gradient Peak")
+plt.scatter(const.x_peak, const.y_peak, label="Gradient Peak")
 plt.axis("equal")
 plt.legend()
 plt.show()
@@ -92,85 +52,85 @@ plt.show()
 
 ## 🧬 API仕様
 
-### `klinotaxis(gene: Gene, constant: Const, mode: int) -> tuple[list[float], list[float]]`
+### `klinotaxis(gene: Gene, constant: Const, mode: int = 1) -> tuple[list[float], list[float]]`
 
 線虫1個体の移動軌跡をシミュレーションします。
 
-- `gene`: ニューロンモデルの重みなどを格納する `Gene` 構造体
-- `constant`: シミュレーションに関する定数を格納する `Const` 構造体
-- `mode`: 濃度マップのモードを指定（下記参照）
+- **`gene`**: ニューロンモデルのパラメータを格納する [`Gene`](#gene) オブジェクト
+- **`constant`**: シミュレーション環境の定数を格納する [`Const`](#const) オブジェクト
+- **`mode`**: 濃度マップのモードを指定
+
+  - `0`: 線形勾配
+  - `1`: ガウス分布 - 1ピーク（デフォルト）
+  - `2`: ガウス分布 - 2ピーク
 
 戻り値は `(x: list[float], y: list[float])` のタプルで、移動経路を表します。
 
+---
+
 ### `Gene`
-神経モデルに関連するパラメータ（ニューロン間の接続強度、閾値など）をまとめた構造体。
 
-#### フィールド:
-- `gene`: `Vec<f64>` 型で、ニューロンのシナプス重みなどを格納する22次元のベクタ。範囲は-1.0〜1.0。
+神経モデルに関連するパラメータをまとめたデータクラス。
 
-##### Pythonでの例:
+- **フィールド**
+
+  - `gene` (`list[float]`):
+    22次元の遺伝子ベクトル。
+
+    - 要素数は **22個**
+    - 各値は **-1.0 〜 1.0** の範囲
+    - 内部的に以下の生理学的パラメータへスケーリングされます:
+
+      - **時間スケール**: `n`, `m`
+      - **ニューロン閾値**: `theta`
+      - **シナプス結合重み**: `w_on`, `w_off`, `w`
+      - **ギャップ結合重み**: `g`
+      - **振動成分重み**: `w_osc`
+      - **神経筋接合部重み**: `w_nmj`
+
+- **使用例**
+
 ```python
-gene = {
-    "gene": [
-        -0.8094022576319283,
-        -0.6771492613425638,
-        0.05892807075993428,
-        -0.4894407617977082,
-        0.1593721867510597,
-        0.3576592038271041,
-        -0.5664294232926526,
-        -0.7853343958692636,
-        0.6552003805912084,
-        -0.6492992485125678,
-        -0.5482223848375227,
-        -0.956542705465967,
-        -1.0,
-        -0.7386107983898611,
-        0.02074396537515929,
-        0.7150315462816783,
-        -0.9243504880454858,
-        0.1353396882729762,
-        0.9494528443702027,
-        0.7727883271643218,
-        -0.6046043758402895,
-        0.7969062294208619,
-    ]
-}
+# デフォルトの遺伝子を使用
+gene = ws.Gene()
+
+# 独自の遺伝子を設定（22次元、-1.0〜1.0の範囲）
+gene = ws.Gene(gene=[0.1] * 22)
 ```
 
+---
+
 ### `Const`
-シミュレーションにおける環境定数（時間刻み、速度、初期角度など）をまとめた構造体。
 
-#### フィールド:
-- **`alpha`**: `f64` 型で、線形濃度の勾配を指定します。
-- **`c_0`**: `f64` 型で、ガウス濃度の設定値を指定します。
-- **`lambda`**: `f64` 型で、ガウス濃度の設定値を指定します。
-- **`x_peak`**: `f64` 型で、勾配のピークの x 座標を指定します（単位: cm）。
-- **`y_peak`**: `f64` 型で、勾配のピークの y 座標を指定します（単位: cm）。
-- **`dt`**: `f64` 型で、シミュレーションの時間刻みの幅を指定します（単位: s）。
-- **`periodic_time`**: `f64` 型で、移動の1サイクルの継続時間を指定します（単位: s）。
-- **`frequency`**: `f64` 型で、方向の平均周波数を指定します（単位: Hz）。
-- **`mu_0`**: `f64` 型で、初期角度を指定します（単位: rad）。
-- **`velocity`**: `f64` 型で、線虫の速度を指定します（単位: cm/s）。
-- **`simulation_time`**: `f64` 型で、シミュレーションの総時間を指定します（単位: s）。
-- **`time_constant`**: `f64` 型で、シミュレーションの時間定数を指定します（単位: s）。
+シミュレーションにおける環境定数をまとめたデータクラス。
 
-##### Pythonでの例:
+- **フィールド**
+
+  - `alpha` (`float`): 線形濃度の勾配
+  - `c_0` (`float`): ガウス分布の基準濃度
+  - `lambda_` (`float`): ガウス分布の広がり（`lambda` は予約語のため末尾に `_`）
+  - `x_peak`, `y_peak` (`float`): 濃度ピークの座標 (cm)
+  - `dt` (`float`): 時間刻み幅 (s)
+  - `periodic_time` (`float`): 1サイクルの移動時間 (s)
+  - `frequency` (`float`): 方向変化の平均周波数 (Hz) ※現在未使用
+  - `mu_0` (`float`): 初期角度 (rad)
+  - `velocity` (`float`): 線虫の移動速度 (cm/s)
+  - `simulation_time` (`float`): シミュレーション総時間 (s)
+  - `time_constant` (`float`): 応答の時定数 (s)
+
+- **使用例**
+
 ```python
-const = {
-    "alpha": -0.01,  # 線形濃度の勾配
-    "c_0": 1.0,  # ガウス濃度の設定
-    "lambda": 1.61,  # ガウス濃度の設定
-    "x_peak": 4.5,  # 勾配のピークのx座標 /cm
-    "y_peak": 0.0,  # 勾配のピークのy座標 /cm
-    "dt": 0.01,  # 時間刻みの幅 /s
-    "periodic_time": 4.2,  # 移動の1サイクルの継続時間 /s
-    "frequency": 0.033,  # 方向の平均周波数 /Hz
-    "mu_0": 0.0,  # 初期角度 /rad
-    "velocity": 0.022,  # 線虫の速度 /cm/s
-    "simulation_time": 300.0,  # シミュレーション時間 /s
-    "time_constant": 0.1,  # 時定数 /s
-}
+# デフォルト値
+const = ws.Const()
+
+# 一部を上書き
+const = ws.Const(
+    x_peak=4.5,
+    y_peak=0.0,
+    velocity=0.03,
+    simulation_time=600.0,
+)
 ```
 
 ---
@@ -178,13 +138,13 @@ const = {
 ## 🧭 濃度マップモード（Concentration Modes）
 
 - `mode = 0`: 線形勾配（遺伝的アルゴリズムでの学習用）
-- `mode = 1`: ガウス分布-1ピーク（基本形）
-- `mode = 2`: ガウス分布-2ピーク
+- `mode = 1`: ガウス分布 - 1ピーク（基本形）
+- `mode = 2`: ガウス分布 - 2ピーク
 
 ---
 
 ## 📚 参考文献（References）
 
-Hironaka, M., & Sumi, T. (2025). *A neural network model that generates salt concentration memory-dependent chemotaxis in Caenorhabditis elegans*. eLife, 14, RP104456. https://doi.org/10.7554/eLife.104456.1
+Hironaka, M., & Sumi, T. (2025). *A neural network model that generates salt concentration memory-dependent chemotaxis in Caenorhabditis elegans*. eLife, 14, RP104456. [https://elifesciences.org/articles/104456](https://elifesciences.org/articles/104456)
 
 ---

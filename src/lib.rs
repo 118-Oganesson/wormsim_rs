@@ -98,7 +98,7 @@ pub fn klinotaxis(gene: Gene, constant: Const, mode: usize) -> PyResult<(Vec<f64
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn wormsim_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _internal(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(klinotaxis, m)?)?;
     Ok(())
 }
